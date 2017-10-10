@@ -1,0 +1,58 @@
+#app1,server1,50,50,20,104,2017/10/02 12:48:14
+#app1,server1,60,50,20,104,2017/10/02 12:53:14
+#app1,server1,120,50,20,104,2017/10/02 12:58:14
+
+awk -F"," '
+   function calculate_slope(x_Sum, y_Sum, x2_Sum, xy_Sum, Samples){
+      x_mean = x_Sum/Samples
+      y_mean = y_Sum/Samples
+      xy_mean = xy_Sum/Samples
+      x2_mean = x2_Sum/Samples
+      
+      slope = (xy_mean - (x_mean*y_mean))/(x2_mean - (x_mean*x_mean))
+	  return slope
+   }
+   function calculate_epoch(timestamp){
+      split(timestamp,timestamp_parts," ")
+      split(timestamp_parts[1],date_parts,"/")
+      split(timestamp_parts[2],time_parts,":")
+      epoch=mktime(date_parts[1]" "date_parts[2]" "date_parts[3]" "time_parts[1]" "time_parts[2]" "time_parts[3])
+      return epoch
+   }
+{
+   if(num[$1,$2] == 0){
+      start[$1,$2]=calculate_epoch($7)
+      x=1
+   }else{
+      current=calculate_epoch($7)
+      x=(current - start[$1,$2])/60
+   }
+   num[$1,$2] += 1
+   Apps[$1,$2]
+   Blocked[$1,$2]+= $3
+   Runnable[$1,$2]+= $4
+   Timed_Waiting[$1,$2]+= $5
+   Waiting[$1,$2]+= $6
+   
+   x_Time[$1,$2] += x
+   x2_Time[$1,$2] += x*x
+   
+   xy_Blocked[$1,$2] += x*$3
+   xy_Runnable[$1,$2] += x*$4
+   xy_Timed_Waiting[$1,$2] += x*$5
+   xy_Waiting[$1,$2] += x*$6
+   
+}
+END {
+   for(app in Apps){
+	  #slope_Blocked = (mean_Blocked_xy - (mean_x_Blocked*mean_Blocked))/(mean_Blocked_x2 - (mean_x_Blocked*mean_x_Blocked))
+	  #inter = mean_Blocked - slope_Blocked*mean_x_Blocked
+	  
+	  Blocked_slope=calculate_slope(x_Time[app],Blocked[app],x2_Time[app],xy_Blocked[app],num[app])
+	  Runnable_slope=calculate_slope(x_Time[app],Runnable[app],x2_Time[app],xy_Runnable[app],num[app])
+	  Waiting_slope=calculate_slope(x_Time[app],Waiting[app],x2_Time[app],xy_Waiting[app],num[app])
+	  Timed_Waiting_slope=calculate_slope(x_Time[app],Timed_Waiting[app],x2_Time[app],xy_Timed_Waiting[app],num[app])
+	  printf "%s: Blocked_slope: %.2f - Runnable_slope: %.2f - Timed_Waiting_slope: %.2f - Waiting_slope: %.2f\n",app,Blocked_slope,Runnable_slope,Waiting_slope,Timed_Waiting_slope
+   }
+}
+'
