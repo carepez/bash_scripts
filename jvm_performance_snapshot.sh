@@ -20,6 +20,37 @@ datediff() {
     echo $(( (d1 - d2) ))
 }
 
+initializeArray() {
+   appendToArray "AGENT_DURATION" "nil"
+   appendToArray "AGENT_MESSAGE" "nil"
+   appendToArray "AGENT_STATUS" "nil"
+   appendToArray "APPLICATION_NAME" "nil"
+   appendToArray "APPLICATION_SERVER_HOSTNAME" "nil"
+   appendToArray "JVM_CONNECTIONS_ESTABLISHED" "nil"
+   appendToArray "JVM_FGC_AVG_DURATION" "nil"
+   appendToArray "JVM_FGC_FREQUENCY" "nil"
+   appendToArray "JVM_FGC_TOTAL" "nil"
+   appendToArray "JVM_FGC_TOTAL_DURATION" "nil"
+   appendToArray "JVM_HEAP_MAX" "nil"
+   appendToArray "JVM_HEAP_USED" "nil"
+   appendToArray "JVM_HEAP_USED_PERC" "nil"
+   appendToArray "JVM_IO_RDS" "nil"
+   appendToArray "JVM_IO_WRS" "nil"
+   appendToArray "JVM_JAVA_BIN" "nil"
+   appendToArray "JVM_JAVA_VERSION" "nil"
+   appendToArray "JVM_PID" "nil"
+   appendToArray "JVM_PROCESS_CPU_USED" "nil"
+   appendToArray "JVM_PROCESS_ELAPSED_TIME" "nil"
+   appendToArray "JVM_PROCESS_LAST_STARTUP" "nil"
+   appendToArray "JVM_PROCESS_MEMORY_USED" "nil"
+   appendToArray "JVM_PROCESS_STATUS" "nil"
+   appendToArray "JVM_THREADS_BLOCKED" "nil"
+   appendToArray "JVM_THREADS_RUNNABLE" "nil"
+   appendToArray "JVM_THREADS_TIMED_WAITING" "nil"
+   appendToArray "JVM_THREADS_WAITING" "nil"
+   appendToArray "TIMESTAMP" "nil"
+}
+
 getPid() {
    SEARCH_KEY="$1"
    MY_USER="$2"
@@ -197,6 +228,16 @@ appendToArray() {
    SNAPSHOT_ARRAY["$1"]="$2"
 }
 
+arrayKeys(){
+k=0
+len=${#SNAPSHOT_ARRAY[@]}
+for i in "${!SNAPSHOT_ARRAY[@]}"
+do
+   (( $k < $len - 1 )) && /usr/bin/printf "%s," "$i" || /usr/bin/printf "%s\n" "$i"
+   k=`expr $k + 1`
+done
+
+}
 
 arrayToCSV() {
 #AAA,BBB,CCC,DDD,EEE,FFF
@@ -335,6 +376,8 @@ printOutput(){
          ;;
       "json" ) arrayToJSON
          ;;
+      "keys" ) arrayKeys
+         ;;
    esac
 }
 
@@ -348,7 +391,7 @@ START_DATE=$(date -u "+%Y/%m/%d %H:%M:%S")
 
 
 
-while getopts "s:a:u:clj" Option
+while getopts "s:a:u:cljk" Option
 do
 case ${Option} in
         c) if [ -z $OUT_FORMAT ]
@@ -368,6 +411,13 @@ case ${Option} in
         j) if [ -z $OUT_FORMAT ]
            then
               OUT_FORMAT="json"
+           else
+              usage
+           fi
+        ;;
+        k) if [ $OUT_FORMAT=="csv" ]
+           then
+              OUT_FORMAT="keys"
            else
               usage
            fi
@@ -397,6 +447,8 @@ then
    echo ""
    usage
 fi
+
+initializeArray
 
 appendToArray "APPLICATION_NAME" "$APPLICATION_NAME"
 appendToArray "TIMESTAMP" "$START_DATE"
