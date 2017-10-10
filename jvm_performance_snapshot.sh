@@ -6,6 +6,7 @@ BASE_DIR=`dirname $0`
 BASE_DIR_ABS=`cd "${BASE_DIR}"; pwd -P`
 
 JVM_TOP_OUTPUT_FILE="${BASE_DIR_ABS}/tmp/jvm_top_output_$$.tmp"
+JVM_PIDSTAT_OUTPUT_FILE="${BASE_DIR_ABS}/tmp/jvm_pidstat_output_$$.tmp"
 JSTAT_OUTPUT_FILE="${BASE_DIR_ABS}/tmp/jstat_output_$$.tmp"
 JSTACK_THREAD_DUMP="${BASE_DIR_ABS}/tmp/jstack_thread_dump_$$.tmp"
 
@@ -177,9 +178,18 @@ getServerHostname() {
 }
 
 
-#getIOStats() {
-#
-#}
+getIORead() {
+   JVM_PIDSTAT_OUTPUT_FILE="$1"
+   JVM_KB_READS_PER_SECOND=`/bin/cat $JVM_PIDSTAT_OUTPUT_FILE | awk '{print $3}'`
+   echo "$JVM_KB_READS_PER_SECOND"
+
+}
+
+getIOWrite() {
+   JVM_PIDSTAT_OUTPUT_FILE="$1"
+   JVM_KB_WRITES_PER_SECOND=`/bin/cat $JVM_PIDSTAT_OUTPUT_FILE | awk '{print $4}'`
+   echo "$JVM_KB_WRITES_PER_SECOND"
+}
 
 appendToArray() {
    KEY=$1
@@ -273,6 +283,10 @@ generateJStat() {
 
 generateTop() {
    /usr/bin/top -p ${JVM_PID} - b -n 1 2>/dev/null | tail -3 | head -2 > ${JVM_TOP_OUTPUT_FILE}
+}
+
+generatePidstat() {
+  /usr/bin/pidstat -d -p ${JVM_PID} -h 1 1 2>/dev/null | tail -1 > ${JVM_PIDSTAT_OUTPUT_FILE}
 }
 
 validateAndAppend() {
@@ -408,6 +422,8 @@ generateJStat $JVM_PID
 generateTop $JVM_PID
 [[ $? -ne 0 ]] && export MSG="An Error occurred generating top" && export AGENT_STATUS="E" && terminate
 
+generatePidstat $JVM_PID
+[[ $? -ne 0 ]] && export MSG="An Error occurred generating pidstat" && export AGENT_STATUS="E" && terminate
 
 
 JVM_JAVA_VERSION=`getJavaVersion`
@@ -455,6 +471,12 @@ appendToArray "JVM_PROCESS_MEMORY_USED" $JVM_PROCESS_MEMORY_USED
 JVM_PROCESS_STATUS=`getProcessStatus "${JVM_TOP_OUTPUT_FILE}"`
 appendToArray "JVM_PROCESS_STATUS" $JVM_PROCESS_STATUS
 
+JVM_KB_WRITES_PER_SECOND=`getIOWrite "${JVM_PIDSTAT_OUTPUT_FILE}"`
+appendToArray "JVM_IO_WRS" $JVM_KB_WRITES_PER_SECOND
+
+JVM_KB_READS_PER_SECOND=`getIORead "${JVM_PIDSTAT_OUTPUT_FILE}"`
+appendToArray "JVM_IO_RDS" $JVM_KB_READS_PER_SECOND
+
 JVM_CONNECTIONS_ESTABLISHED=`getEstablishedConnections ${JVM_PID}`
 appendToArray "JVM_CONNECTIONS_ESTABLISHED" $JVM_CONNECTIONS_ESTABLISHED
 
@@ -477,6 +499,6 @@ terminate
 #arrayToCSV
 #arrayToList
 
-/bin/rm ${JVM_TOP_OUTPUT_FILE} ${JSTACK_THREAD_DUMP} ${JSTAT_OUTPUT_FILE} 2>/dev/null
+/bin/rm ${JVM_TOP_OUTPUT_FILE} ${JVM_PIDSTAT_OUTPUT_FILE} ${JSTACK_THREAD_DUMP} ${JSTAT_OUTPUT_FILE} 2>/dev/null
 
 exit 0
